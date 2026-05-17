@@ -191,10 +191,9 @@ const TestRunner: FC<TestRunnerProps> = ({
         ))}
       </div>
 
-      <PageSection style={{ maxWidth: '900px' }}>
+      <PageSection style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem' }}>
         <div style={{ marginBottom: '0.5rem', color: 'var(--pf-t--global--color--subtle)' }}>
-          {currentQuestion.type.replace('_', ' ')} &middot;{' '}
-          {currentQuestion.points} pts
+          {currentQuestion.type.replace('_', ' ')}
         </div>
 
         {currentQuestion.type === 'coding' ? (
