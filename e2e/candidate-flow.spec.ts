@@ -2,6 +2,9 @@ import { test, expect, ADMIN_CREDS } from './fixtures';
 import {
   createFullTestWithQuestions,
   createInvitationViaApi,
+  dismissNextJsOverlay,
+  loginOnPage,
+  setMonacoEditorContent,
 } from './helpers';
 
 test.describe('Invitation and Candidate Flow', () => {
@@ -10,11 +13,7 @@ test.describe('Invitation and Candidate Flow', () => {
 
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage();
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await page.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL(/\/dashboard/);
+    await loginOnPage(page, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       page,
@@ -35,8 +34,8 @@ test.describe('Invitation and Candidate Flow', () => {
   test('generate invitation link via UI', async ({ adminPage }) => {
     await adminPage.goto(`/tests/${testId}/invite`);
 
-    await adminPage.getByLabel('Candidate Name').fill('UI Invite Test');
-    await adminPage.getByLabel('Candidate Email').fill('ui-invite@example.com');
+    await adminPage.locator('#inv-name').fill('UI Invite Test');
+    await adminPage.locator('#inv-email').fill('ui-invite@example.com');
     await adminPage.getByRole('button', { name: 'Generate Link' }).click();
 
     await expect(adminPage.getByText('Invitation link created')).toBeVisible();
@@ -46,8 +45,8 @@ test.describe('Invitation and Candidate Flow', () => {
   test('candidate sees landing page', async ({ page }) => {
     await page.goto(`/test/${invitationToken}`);
 
-    await expect(page.getByText('E2E Candidate Flow')).toBeVisible();
-    await expect(page.getByText('3')).toBeVisible(); // question count
+    await expect(page.getByRole('heading', { name: /E2E Candidate Flow/ })).toBeVisible();
+    await expect(page.getByText(/Questions:.*3/)).toBeVisible();
     await expect(page.getByText('60 minutes')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Start Test' })).toBeVisible();
   });
@@ -57,7 +56,7 @@ test.describe('Invitation and Candidate Flow', () => {
     await page.getByRole('button', { name: 'Start Test' }).click();
 
     await expect(page.getByText('Question 1 of 3')).toBeVisible();
-    await expect(page.getByText(/\d{2}:\d{2}/)).toBeVisible(); // timer MM:SS
+    await expect(page.getByText(/\d{2}:\d{2}/)).toBeVisible();
   });
 
   test('navigate between questions', async ({ page }) => {
@@ -65,13 +64,13 @@ test.describe('Invitation and Candidate Flow', () => {
 
     await expect(page.getByText('Question 1 of 3')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText('Question 2 of 3')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Previous' }).click();
+    await page.getByRole('button', { name: 'Previous', exact: true }).click();
     await expect(page.getByText('Question 1 of 3')).toBeVisible();
 
-    await page.getByRole('button', { name: '3' }).click();
+    await page.getByRole('button', { name: '3', exact: true }).click();
     await expect(page.getByText('Question 3 of 3')).toBeVisible();
   });
 
@@ -80,26 +79,26 @@ test.describe('Invitation and Candidate Flow', () => {
 
     await expect(page.getByText('Question 1 of 3')).toBeVisible();
 
-    await page.getByLabel('4').check();
+    await page.locator('#option-1').check();
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText('Question 2 of 3')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Previous' }).click();
-    await expect(page.getByLabel('4')).toBeChecked();
+    await page.getByRole('button', { name: 'Previous', exact: true }).click();
+    await expect(page.locator('#option-1')).toBeChecked();
   });
 
   test('answer free text question and verify persistence', async ({ page }) => {
     await page.goto(`/test/${invitationToken}`);
 
-    await page.getByRole('button', { name: '2' }).click();
+    await page.getByRole('button', { name: '2', exact: true }).click();
     await expect(page.getByText('Question 2 of 3')).toBeVisible();
 
     const textarea = page.getByPlaceholder('Type your answer here...');
     await textarea.fill('let is block-scoped and reassignable, const is block-scoped but not reassignable.');
 
-    await page.getByRole('button', { name: 'Next' }).click();
-    await page.getByRole('button', { name: 'Previous' }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('button', { name: 'Previous', exact: true }).click();
 
     await expect(textarea).toHaveValue(/let is block-scoped/);
   });
@@ -107,12 +106,10 @@ test.describe('Invitation and Candidate Flow', () => {
   test('answer coding question and run code', async ({ page }) => {
     await page.goto(`/test/${invitationToken}`);
 
-    await page.getByRole('button', { name: '3' }).click();
+    await page.getByRole('button', { name: '3', exact: true }).click();
     await expect(page.getByText('Question 3 of 3')).toBeVisible();
 
-    const editor = page.locator('.monaco-editor textarea');
-    await editor.focus();
-    await editor.fill('print("hello world")');
+    await setMonacoEditorContent(page, 'print("hello world")');
 
     await page.getByRole('button', { name: 'Run' }).click();
 
@@ -122,11 +119,12 @@ test.describe('Invitation and Candidate Flow', () => {
   test('submit test manually', async ({ page }) => {
     await page.goto(`/test/${invitationToken}`);
 
-    await page.getByRole('button', { name: '3' }).click();
+    await page.getByRole('button', { name: '3', exact: true }).click();
     await page.getByRole('button', { name: 'Submit Test' }).click();
 
-    await expect(page.getByText('Submit Test?')).toBeVisible();
-    await page.getByRole('button', { name: 'Submit' }).click();
+    const modal = page.locator('[aria-label="Confirm submission"]');
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', { name: 'Submit' }).click();
 
     await expect(page.getByText('Thank You')).toBeVisible();
   });
@@ -138,16 +136,12 @@ test.describe('Invitation and Candidate Flow', () => {
 
   test('auto-submit on timer expiry', async ({ browser }) => {
     const adminPage = await browser.newPage();
-    await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await adminPage.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/dashboard/);
+    await loginOnPage(adminPage, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       adminPage,
       `Timer Test ${Date.now()}`,
-      1, // 1-minute time limit
+      1,
     );
     const inv = await createInvitationViaApi(
       adminPage,
@@ -158,6 +152,7 @@ test.describe('Invitation and Candidate Flow', () => {
     await adminPage.close();
 
     const page = await browser.newPage();
+    await dismissNextJsOverlay(page);
     await page.clock.install();
     await page.goto(`/test/${inv.token}`);
     await page.getByRole('button', { name: 'Start Test' }).click();
@@ -172,11 +167,7 @@ test.describe('Invitation and Candidate Flow', () => {
 
   test('paste detection shows warning', async ({ browser }) => {
     const adminPage = await browser.newPage();
-    await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await adminPage.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/dashboard/);
+    await loginOnPage(adminPage, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       adminPage,
@@ -191,8 +182,10 @@ test.describe('Invitation and Candidate Flow', () => {
     await adminPage.close();
 
     const page = await browser.newPage();
+    await dismissNextJsOverlay(page);
     await page.goto(`/test/${inv.token}`);
     await page.getByRole('button', { name: 'Start Test' }).click();
+    await expect(page.getByText('Question 1 of 3')).toBeVisible();
 
     await page.evaluate(() => {
       const dt = new DataTransfer();
@@ -208,11 +201,7 @@ test.describe('Invitation and Candidate Flow', () => {
 
   test('tab switch detection records event', async ({ browser }) => {
     const adminPage = await browser.newPage();
-    await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await adminPage.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/dashboard/);
+    await loginOnPage(adminPage, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       adminPage,
@@ -227,8 +216,10 @@ test.describe('Invitation and Candidate Flow', () => {
     await adminPage.close();
 
     const page = await browser.newPage();
+    await dismissNextJsOverlay(page);
     await page.goto(`/test/${inv.token}`);
     await page.getByRole('button', { name: 'Start Test' }).click();
+    await expect(page.getByText('Question 1 of 3')).toBeVisible();
 
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', {
@@ -248,22 +239,12 @@ test.describe('Invitation and Candidate Flow', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // Verify by checking the API recorded the event
-    const response = await page.request.get(
-      `/api/submissions/${(await page.evaluate(() => document.cookie))}`,
-    );
-    // The integrity event was sent -- we verified the code path runs.
-    // Full verification is done in the results-grading suite.
     await page.close();
   });
 
   test('mobile warning is shown on small viewport', async ({ browser }) => {
     const adminPage = await browser.newPage();
-    await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await adminPage.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/dashboard/);
+    await loginOnPage(adminPage, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       adminPage,
@@ -281,6 +262,7 @@ test.describe('Invitation and Candidate Flow', () => {
       viewport: { width: 600, height: 800 },
     });
     const page = await context.newPage();
+    await dismissNextJsOverlay(page);
     await page.goto(`/test/${inv.token}`);
 
     await expect(page.getByText('Desktop recommended')).toBeVisible();

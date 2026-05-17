@@ -1,16 +1,12 @@
 import { test, expect } from './fixtures';
-import { createTestViaApi } from './helpers';
+import { createTestViaApi, loginOnPage } from './helpers';
 
 test.describe('Question Management', () => {
   let testId: string;
 
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage();
-    await page.goto('/login');
-    await page.getByLabel('Email').fill('admin@devassess.com');
-    await page.getByLabel('Password').fill('admin123');
-    await page.getByRole('button', { name: 'Sign In' }).click();
-    await page.waitForURL(/\/dashboard/);
+    await loginOnPage(page, 'admin@devassess.com', 'admin123');
 
     const t = await createTestViaApi(page, `E2E Questions Test ${Date.now()}`);
     testId = t.id;
@@ -21,19 +17,23 @@ test.describe('Question Management', () => {
     await adminPage.goto(`/tests/${testId}`);
     await adminPage.getByRole('button', { name: 'Add Question' }).click();
 
-    await adminPage.locator('#q-type').selectOption('multiple_choice');
-    await adminPage.locator('#q-content').fill('What color is the sky?');
+    const modal = adminPage.locator('[aria-label="Add question"]');
+    await expect(modal).toBeVisible();
 
-    const options = adminPage.locator('[placeholder^="Option"]');
+    await modal.locator('#q-type').selectOption('multiple_choice');
+    await modal.locator('#q-content').fill('What color is the sky?');
+
+    const options = modal.locator('[placeholder^="Option"]');
     await options.nth(0).fill('Red');
     await options.nth(1).fill('Blue');
-    await adminPage.getByText('Add Option').click();
+    await modal.getByText('Add Option').click();
     await options.nth(2).fill('Green');
 
-    await adminPage.locator('#opt-correct-1').check();
+    await modal.locator('#opt-correct-1').check();
 
-    await adminPage.getByRole('button', { name: 'Add Question' }).last().click();
+    await modal.getByRole('button', { name: 'Add Question' }).click();
 
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText('Q1: multiple choice')).toBeVisible();
     await expect(adminPage.getByText('Blue (correct)')).toBeVisible();
   });
@@ -42,18 +42,22 @@ test.describe('Question Management', () => {
     await adminPage.goto(`/tests/${testId}`);
     await adminPage.getByRole('button', { name: 'Add Question' }).first().click();
 
-    await adminPage.locator('#q-type').selectOption('multiple_choice');
-    await adminPage.locator('#q-content').fill('Which are programming languages?');
-    await adminPage.locator('#q-allow-multi').check();
+    const modal = adminPage.locator('[aria-label="Add question"]');
+    await expect(modal).toBeVisible();
 
-    const options = adminPage.locator('[placeholder^="Option"]');
+    await modal.locator('#q-type').selectOption('multiple_choice');
+    await modal.locator('#q-content').fill('Which are programming languages?');
+    await modal.locator('#q-allow-multi').check();
+
+    const options = modal.locator('[placeholder^="Option"]');
     await options.nth(0).fill('Python');
     await options.nth(1).fill('HTML');
 
-    await adminPage.locator('#opt-correct-0').check();
+    await modal.locator('#opt-correct-0').check();
 
-    await adminPage.getByRole('button', { name: 'Add Question' }).last().click();
+    await modal.getByRole('button', { name: 'Add Question' }).click();
 
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText('Q2: multiple choice')).toBeVisible();
   });
 
@@ -61,13 +65,17 @@ test.describe('Question Management', () => {
     await adminPage.goto(`/tests/${testId}`);
     await adminPage.getByRole('button', { name: 'Add Question' }).first().click();
 
-    await adminPage.locator('#q-type').selectOption('free_text');
-    await adminPage.locator('#q-content').fill(
+    const modal = adminPage.locator('[aria-label="Add question"]');
+    await expect(modal).toBeVisible();
+
+    await modal.locator('#q-type').selectOption('free_text');
+    await modal.locator('#q-content').fill(
       '## Explain\n\nDescribe the `async/await` pattern in JavaScript.',
     );
 
-    await adminPage.getByRole('button', { name: 'Add Question' }).last().click();
+    await modal.getByRole('button', { name: 'Add Question' }).click();
 
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText('Q3: free text')).toBeVisible();
   });
 
@@ -75,17 +83,21 @@ test.describe('Question Management', () => {
     await adminPage.goto(`/tests/${testId}`);
     await adminPage.getByRole('button', { name: 'Add Question' }).first().click();
 
-    await adminPage.locator('#q-type').selectOption('coding');
-    await adminPage.locator('#q-content').fill(
+    const modal = adminPage.locator('[aria-label="Add question"]');
+    await expect(modal).toBeVisible();
+
+    await modal.locator('#q-type').selectOption('coding');
+    await modal.locator('#q-content').fill(
       'Write a function `add(a, b)` that returns the sum.',
     );
-    await adminPage.locator('#q-starter-code').fill('def add(a, b):\n    pass\n');
+    await modal.locator('#q-starter-code').fill('def add(a, b):\n    pass\n');
 
-    await adminPage.locator('#lang-python').check();
-    await adminPage.locator('#lang-javascript').check();
+    await modal.locator('#lang-python').check();
+    await modal.locator('#lang-javascript').check();
 
-    await adminPage.getByRole('button', { name: 'Add Question' }).last().click();
+    await modal.getByRole('button', { name: 'Add Question' }).click();
 
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText('Q4: coding')).toBeVisible();
     await expect(adminPage.getByText('python, javascript')).toBeVisible();
   });
@@ -93,27 +105,28 @@ test.describe('Question Management', () => {
   test('delete a question', async ({ adminPage }) => {
     await adminPage.goto(`/tests/${testId}`);
 
-    const questionCount = await adminPage.getByText(/^Q\d+:/).count();
+    const deleteButtons = adminPage.getByRole('button', { name: 'Delete question' });
+    await expect(deleteButtons.first()).toBeVisible();
+    const questionCount = await deleteButtons.count();
 
-    await adminPage
-      .getByRole('button', { name: 'Delete question' })
-      .last()
-      .click();
+    await deleteButtons.last().click();
 
-    const newCount = await adminPage.getByText(/^Q\d+:/).count();
-    expect(newCount).toBe(questionCount - 1);
+    await expect(deleteButtons).toHaveCount(questionCount - 1);
   });
 
   test('markdown preview works', async ({ adminPage }) => {
     await adminPage.goto(`/tests/${testId}`);
     await adminPage.getByRole('button', { name: 'Add Question' }).first().click();
 
-    await adminPage.locator('#q-content').fill('# Hello World\n\nThis is **bold**.');
-    await adminPage.getByText('Show Preview').click();
+    const modal = adminPage.locator('[aria-label="Add question"]');
+    await expect(modal).toBeVisible();
 
-    await expect(adminPage.locator('h1:has-text("Hello World")')).toBeVisible();
-    await expect(adminPage.locator('strong:has-text("bold")')).toBeVisible();
+    await modal.locator('#q-content').fill('# Hello World\n\nThis is **bold**.');
+    await modal.getByText('Show Preview').click();
 
-    await adminPage.getByText('Cancel').click();
+    await expect(modal.locator('h1:has-text("Hello World")')).toBeVisible();
+    await expect(modal.locator('strong:has-text("bold")')).toBeVisible();
+
+    await modal.getByText('Cancel').click();
   });
 });

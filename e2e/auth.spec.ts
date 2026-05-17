@@ -14,41 +14,44 @@ test.describe('Authentication and Access Control', () => {
 
   test('admin can log in and sees all nav items', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await page.getByLabel('Password').fill(ADMIN_CREDS.password);
+    await page.locator('#email').fill(ADMIN_CREDS.email);
+    await page.locator('#password').fill(ADMIN_CREDS.password);
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Tests' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
+    const nav = page.locator('nav');
+    await expect(nav.getByText('Dashboard')).toBeVisible();
+    await expect(nav.getByText('Tests')).toBeVisible();
+    await expect(nav.getByText('Users')).toBeVisible();
   });
 
   test('manager can log in and does NOT see Users nav', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('Email').fill(MANAGER_CREDS.email);
-    await page.getByLabel('Password').fill(MANAGER_CREDS.password);
+    await page.locator('#email').fill(MANAGER_CREDS.email);
+    await page.locator('#password').fill(MANAGER_CREDS.password);
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Tests' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Users' })).not.toBeVisible();
+    const nav = page.locator('nav');
+    await expect(nav.getByText('Dashboard')).toBeVisible();
+    await expect(nav.getByText('Tests')).toBeVisible();
+    await expect(nav.getByText('Users')).not.toBeVisible();
   });
 
   test('recruiter can log in and does NOT see Users nav', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('Email').fill(RECRUITER_CREDS.email);
-    await page.getByLabel('Password').fill(RECRUITER_CREDS.password);
+    await page.locator('#email').fill(RECRUITER_CREDS.email);
+    await page.locator('#password').fill(RECRUITER_CREDS.password);
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Tests' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Users' })).not.toBeVisible();
+    const nav = page.locator('nav');
+    await expect(nav.getByText('Dashboard')).toBeVisible();
+    await expect(nav.getByText('Tests')).toBeVisible();
+    await expect(nav.getByText('Users')).not.toBeVisible();
   });
 
   test('admin can access /users', async ({ adminPage }) => {

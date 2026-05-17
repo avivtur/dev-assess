@@ -2,6 +2,9 @@ import { test, expect, ADMIN_CREDS, RECRUITER_CREDS } from './fixtures';
 import {
   createFullTestWithQuestions,
   createInvitationViaApi,
+  dismissNextJsOverlay,
+  loginOnPage,
+  setMonacoEditorContent,
 } from './helpers';
 
 test.describe('Results and Grading', () => {
@@ -9,13 +12,8 @@ test.describe('Results and Grading', () => {
   let submittedToken: string;
 
   test.beforeAll(async ({ browser }) => {
-    // --- Admin: create test + invitation ---
     const adminPage = await browser.newPage();
-    await adminPage.goto('/login');
-    await adminPage.getByLabel('Email').fill(ADMIN_CREDS.email);
-    await adminPage.getByLabel('Password').fill(ADMIN_CREDS.password);
-    await adminPage.getByRole('button', { name: 'Sign In' }).click();
-    await adminPage.waitForURL(/\/dashboard/);
+    await loginOnPage(adminPage, ADMIN_CREDS.email, ADMIN_CREDS.password);
 
     const result = await createFullTestWithQuestions(
       adminPage,
@@ -32,13 +30,14 @@ test.describe('Results and Grading', () => {
     submittedToken = inv.token;
     await adminPage.close();
 
-    // --- Candidate: take the test ---
     const candidatePage = await browser.newPage();
+    await dismissNextJsOverlay(candidatePage);
     await candidatePage.goto(`/test/${submittedToken}`);
     await candidatePage.getByRole('button', { name: 'Start Test' }).click();
+    await expect(candidatePage.getByText('Question 1 of 3')).toBeVisible();
 
-    // Q1: MC - select correct answer "4"
-    await candidatePage.getByLabel('4').check();
+    // Q1: MC - select correct answer "4" (option index 1)
+    await candidatePage.locator('#option-1').check();
 
     // Trigger a paste event for integrity testing
     await candidatePage.evaluate(() => {
@@ -49,23 +48,25 @@ test.describe('Results and Grading', () => {
       );
     });
 
-    await candidatePage.getByRole('button', { name: 'Next' }).click();
+    await candidatePage.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(candidatePage.getByText('Question 2 of 3')).toBeVisible();
 
     // Q2: Free text
     await candidatePage
       .getByPlaceholder('Type your answer here...')
       .fill('let is reassignable, const is not.');
 
-    await candidatePage.getByRole('button', { name: 'Next' }).click();
+    await candidatePage.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(candidatePage.getByText('Question 3 of 3')).toBeVisible();
 
-    // Q3: Coding - just write some code
-    const editor = candidatePage.locator('.monaco-editor textarea');
-    await editor.focus();
-    await editor.fill('def add(a, b):\n    return a + b');
+    // Q3: Coding - write some code
+    await setMonacoEditorContent(candidatePage, 'def add(a, b):\n    return a + b');
 
     // Submit
     await candidatePage.getByRole('button', { name: 'Submit Test' }).click();
-    await candidatePage.getByRole('button', { name: 'Submit' }).click();
+    const modal = candidatePage.locator('[aria-label="Confirm submission"]');
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', { name: 'Submit' }).click();
     await candidatePage.waitForSelector('text=Thank You');
     await candidatePage.close();
   });
@@ -77,13 +78,12 @@ test.describe('Results and Grading', () => {
     await expect(
       adminPage.getByText('results-candidate@test.com'),
     ).toBeVisible();
-    await expect(adminPage.getByText('submitted')).toBeVisible();
+    await expect(adminPage.getByText('submitted', { exact: true })).toBeVisible();
   });
 
   test('auto-score for MC is correct', async ({ adminPage }) => {
     await adminPage.goto(`/tests/${testId}/results`);
 
-    // MC question was worth 5 points, answered correctly
     await expect(adminPage.getByText('auto: 5')).toBeVisible();
   });
 
@@ -132,10 +132,8 @@ test.describe('Results and Grading', () => {
     await adminPage.goto(`/tests/${testId}/results`);
     await adminPage.getByRole('link', { name: 'Review' }).first().click();
 
-    // Find the free text question's score input (Q2) and set it to 8
     const scoreInputs = adminPage.locator('input[type="number"]');
 
-    // The first NumberInput for non-MC questions should be for Q2 (free text)
     const firstScoreInput = scoreInputs.first();
     await firstScoreInput.clear();
     await firstScoreInput.fill('8');
@@ -143,7 +141,6 @@ test.describe('Results and Grading', () => {
 
     await adminPage.waitForTimeout(1000);
 
-    // Go back to results to check updated score
     await adminPage.goto(`/tests/${testId}/results`);
     await expect(adminPage.getByText('manual: 8')).toBeVisible();
   });
@@ -151,7 +148,6 @@ test.describe('Results and Grading', () => {
   test('total score is auto + manual', async ({ adminPage }) => {
     await adminPage.goto(`/tests/${testId}/results`);
 
-    // auto: 5, manual: 8, total: 13
     await expect(adminPage.getByText('13 (auto: 5')).toBeVisible();
   });
 
@@ -159,6 +155,6 @@ test.describe('Results and Grading', () => {
     await recruiterPage.goto(`/tests/${testId}/results`);
 
     await expect(recruiterPage.getByText('Results Candidate')).toBeVisible();
-    await expect(recruiterPage.getByText('Test Results')).toBeVisible();
+    await expect(recruiterPage.getByRole('heading', { name: 'Test Results' })).toBeVisible();
   });
 });

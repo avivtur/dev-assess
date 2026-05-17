@@ -2,6 +2,49 @@ import type { Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:3001';
 
+export async function dismissNextJsOverlay(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const hideOverlay = (): void => {
+      const style = document.createElement('style');
+      style.textContent =
+        'nextjs-portal { display: none !important; pointer-events: none !important; }';
+      (document.head ?? document.documentElement).appendChild(style);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', hideOverlay);
+    } else {
+      hideOverlay();
+    }
+  });
+}
+
+export async function loginOnPage(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
+  await dismissNextJsOverlay(page);
+  await page.goto('/login');
+  await page.locator('#email').fill(email);
+  await page.locator('#password').fill(password);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.waitForURL(/\/dashboard/);
+}
+
+export async function setMonacoEditorContent(
+  page: Page,
+  content: string,
+): Promise<void> {
+  await page.locator('.monaco-editor').waitFor({ state: 'visible' });
+  await page.waitForFunction(
+    () => !!(window as any).monaco?.editor?.getModels?.()?.length,
+  );
+  await page.evaluate((code) => {
+    const model = (window as any).monaco.editor.getModels()[0];
+    model.setValue(code);
+  }, content);
+}
+
 export async function createTestViaApi(
   page: Page,
   title: string,

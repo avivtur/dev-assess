@@ -17,13 +17,17 @@ test.describe('User Management', () => {
     await adminPage.goto('/users');
     await adminPage.getByRole('button', { name: 'Create User' }).click();
 
-    await adminPage.getByLabel('Name', { exact: true }).fill(NEW_MANAGER.name);
-    await adminPage.getByLabel('Email', { exact: true }).fill(NEW_MANAGER.email);
-    await adminPage.getByLabel('Password').fill(NEW_MANAGER.password);
-    await adminPage.locator('#user-role').selectOption('manager');
+    const modal = adminPage.locator('[aria-label="Create user"]');
+    await expect(modal).toBeVisible();
 
-    await adminPage.getByRole('button', { name: 'Create' }).click();
+    await modal.locator('#user-name').fill(NEW_MANAGER.name);
+    await modal.locator('#user-email').fill(NEW_MANAGER.email);
+    await modal.locator('#user-password').fill(NEW_MANAGER.password);
+    await modal.locator('#user-role').selectOption('manager');
 
+    await modal.getByRole('button', { name: 'Create' }).click();
+
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText(NEW_MANAGER.name)).toBeVisible();
     await expect(adminPage.getByText(NEW_MANAGER.email)).toBeVisible();
   });
@@ -32,21 +36,25 @@ test.describe('User Management', () => {
     await adminPage.goto('/users');
     await adminPage.getByRole('button', { name: 'Create User' }).click();
 
-    await adminPage.getByLabel('Name', { exact: true }).fill(NEW_RECRUITER.name);
-    await adminPage.getByLabel('Email', { exact: true }).fill(NEW_RECRUITER.email);
-    await adminPage.getByLabel('Password').fill(NEW_RECRUITER.password);
-    await adminPage.locator('#user-role').selectOption('recruiter');
+    const modal = adminPage.locator('[aria-label="Create user"]');
+    await expect(modal).toBeVisible();
 
-    await adminPage.getByRole('button', { name: 'Create' }).click();
+    await modal.locator('#user-name').fill(NEW_RECRUITER.name);
+    await modal.locator('#user-email').fill(NEW_RECRUITER.email);
+    await modal.locator('#user-password').fill(NEW_RECRUITER.password);
+    await modal.locator('#user-role').selectOption('recruiter');
 
+    await modal.getByRole('button', { name: 'Create' }).click();
+
+    await expect(modal).not.toBeVisible();
     await expect(adminPage.getByText(NEW_RECRUITER.name)).toBeVisible();
     await expect(adminPage.getByText(NEW_RECRUITER.email)).toBeVisible();
   });
 
   test('newly created manager can log in', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('Email').fill(NEW_MANAGER.email);
-    await page.getByLabel('Password').fill(NEW_MANAGER.password);
+    await page.locator('#email').fill(NEW_MANAGER.email);
+    await page.locator('#password').fill(NEW_MANAGER.password);
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
