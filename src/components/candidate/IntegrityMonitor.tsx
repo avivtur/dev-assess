@@ -18,8 +18,12 @@ const IntegrityMonitor: FC<IntegrityMonitorProps> = ({
 }) => {
   const [showPasteWarning, setShowPasteWarning] = useState(false);
   const leaveTimeRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const handlePaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text') ?? '';
 
@@ -58,17 +62,19 @@ const IntegrityMonitor: FC<IntegrityMonitorProps> = ({
       }
     };
 
-    document.addEventListener('paste', handlePaste);
+    container.addEventListener('paste', handlePaste, true);
+    document.addEventListener('paste', handlePaste, true);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      document.removeEventListener('paste', handlePaste);
+      container.removeEventListener('paste', handlePaste, true);
+      document.removeEventListener('paste', handlePaste, true);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [submissionId, currentQuestionId]);
 
   return (
-    <div>
+    <div ref={containerRef}>
       {showPasteWarning && (
         <Alert
           variant="warning"

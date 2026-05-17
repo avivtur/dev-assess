@@ -28,13 +28,14 @@ const DashboardPage: FC = () => {
   });
 
   useEffect(() => {
-    fetch('/api/tests')
+    fetch('/api/dashboard-stats')
       .then((r) => r.json())
-      .then((data) => {
-        setStats((prev) => ({
-          ...prev,
-          totalTests: Array.isArray(data) ? data.length : 0,
-        }));
+      .then((data: DashboardStats) => {
+        setStats({
+          totalTests: data.totalTests ?? 0,
+          totalInvitations: data.totalInvitations ?? 0,
+          totalSubmissions: data.totalSubmissions ?? 0,
+        });
       })
       .catch(() => {});
   }, []);

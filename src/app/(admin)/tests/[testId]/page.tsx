@@ -112,6 +112,9 @@ const TestDetailPage: FC = () => {
   };
 
   const [qForm, setQForm] = useState<QuestionForm>(emptyQuestion);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(
+    null,
+  );
 
   const loadTest = useCallback((): void => {
     fetch(`/api/tests/${testId}`)
@@ -151,24 +154,61 @@ const TestDetailPage: FC = () => {
     router.push('/tests');
   };
 
-  const handleAddQuestion = async (): Promise<void> => {
-    await fetch('/api/questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        testId,
-        type: qForm.type,
-        content: qForm.content,
-        options: qForm.type === 'multiple_choice' ? qForm.options : null,
-        allowMultiple: qForm.allowMultiple,
-        points: qForm.points,
-        starterCode: qForm.type === 'coding' ? qForm.starterCode : null,
-        allowedLanguages:
-          qForm.type === 'coding' ? qForm.allowedLanguages : null,
-        orderIndex: test?.questions.length ?? 0,
-      }),
+  const openAddQuestionModal = (): void => {
+    setEditingQuestionId(null);
+    setQForm(emptyQuestion);
+    setIsModalOpen(true);
+  };
+
+  const openEditQuestionModal = (q: Question): void => {
+    setEditingQuestionId(q.id);
+    setQForm({
+      type: q.type,
+      content: q.content,
+      options: q.options ?? [
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false },
+      ],
+      allowMultiple: q.allowMultiple,
+      points: q.points,
+      starterCode: q.starterCode ?? '',
+      allowedLanguages: q.allowedLanguages ?? ['python', 'javascript'],
     });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveQuestion = async (): Promise<void> => {
+    const payload = {
+      type: qForm.type,
+      content: qForm.content,
+      options: qForm.type === 'multiple_choice' ? qForm.options : null,
+      allowMultiple: qForm.allowMultiple,
+      points: qForm.points,
+      starterCode: qForm.type === 'coding' ? qForm.starterCode : null,
+      allowedLanguages:
+        qForm.type === 'coding' ? qForm.allowedLanguages : null,
+    };
+
+    if (editingQuestionId) {
+      await fetch(`/api/questions/${editingQuestionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await fetch('/api/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          testId,
+          orderIndex: test?.questions.length ?? 0,
+        }),
+      });
+    }
+
     setIsModalOpen(false);
+    setEditingQuestionId(null);
     setQForm(emptyQuestion);
     loadTest();
   };
@@ -280,13 +320,22 @@ const TestDetailPage: FC = () => {
               <span>
                 Q{idx + 1}: {q.type.replace('_', ' ')} ({q.points} pts)
               </span>
-              <Button
-                variant="plain"
-                aria-label="Delete question"
-                onClick={() => handleDeleteQuestion(q.id)}
-              >
-                <TrashIcon />
-              </Button>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                <Button
+                  variant="plain"
+                  aria-label="Edit question"
+                  onClick={() => openEditQuestionModal(q)}
+                >
+                  <PencilAltIcon />
+                </Button>
+                <Button
+                  variant="plain"
+                  aria-label="Delete question"
+                  onClick={() => handleDeleteQuestion(q.id)}
+                >
+                  <TrashIcon />
+                </Button>
+              </div>
             </div>
           </CardTitle>
           <CardBody>
@@ -315,15 +364,21 @@ const TestDetailPage: FC = () => {
         </Card>
       ))}
 
-      <Button onClick={() => setIsModalOpen(true)}>Add Question</Button>
+      <Button onClick={openAddQuestionModal}>Add Question</Button>
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        aria-label="Add question"
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingQuestionId(null);
+          setQForm(emptyQuestion);
+        }}
+        aria-label={editingQuestionId ? 'Edit question' : 'Add question'}
         variant="large"
       >
-        <ModalHeader title="Add Question" />
+        <ModalHeader
+          title={editingQuestionId ? 'Edit Question' : 'Add Question'}
+        />
         <ModalBody style={{ paddingBottom: '1.5rem' }}>
           <Form>
             <FormGroup label="Type" isRequired fieldId="q-type">
@@ -502,10 +557,16 @@ const TestDetailPage: FC = () => {
         </ModalBody>
         <ModalFooter>
           <ActionGroup>
-            <Button onClick={handleAddQuestion}>Add Question</Button>
+            <Button onClick={handleSaveQuestion}>
+              {editingQuestionId ? 'Save Changes' : 'Add Question'}
+            </Button>
             <Button
               variant="link"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingQuestionId(null);
+                setQForm(emptyQuestion);
+              }}
             >
               Cancel
             </Button>
