@@ -1,10 +1,17 @@
 'use client';
 
 import {
+  ActionGroup,
+  Button,
   Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   PageSection,
   Title,
 } from '@patternfly/react-core';
+import { TrashIcon } from '@patternfly/react-icons';
 import {
   Table,
   Tbody,
@@ -37,6 +44,7 @@ const SECONDS_PER_MINUTE = 60;
 const ResultsPage: FC = () => {
   const { testId } = useParams<{ testId: string }>();
   const [rows, setRows] = useState<SubmissionRow[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<SubmissionRow | null>(null);
 
   const loadResults = useCallback((): void => {
     fetch(`/api/tests/${testId}/results`)
@@ -60,6 +68,15 @@ const ResultsPage: FC = () => {
     const mins = Math.floor(ms / MS_PER_SECOND / SECONDS_PER_MINUTE);
     const secs = Math.floor((ms / MS_PER_SECOND) % SECONDS_PER_MINUTE);
     return `${mins}m ${secs}s`;
+  };
+
+  const handleDeleteSubmission = async (): Promise<void> => {
+    if (!deleteTarget) return;
+    await fetch(`/api/submissions/${deleteTarget.submissionId}`, {
+      method: 'DELETE',
+    });
+    setDeleteTarget(null);
+    loadResults();
   };
 
   return (
@@ -120,6 +137,14 @@ const ResultsPage: FC = () => {
                 <Link href={`/results/${r.submissionId}`}>
                   Review
                 </Link>
+                <Button
+                  variant="plain"
+                  aria-label="Delete submission"
+                  onClick={() => setDeleteTarget(r)}
+                  style={{ marginLeft: '0.5rem' }}
+                >
+                  <TrashIcon />
+                </Button>
               </Td>
             </Tr>
           ))}
@@ -132,6 +157,30 @@ const ResultsPage: FC = () => {
           )}
         </Tbody>
       </Table>
+
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        aria-label="Delete submission"
+        variant="small"
+      >
+        <ModalHeader title="Delete Submission?" />
+        <ModalBody>
+          This will permanently delete the submission from &quot;
+          {deleteTarget?.candidateName}&quot; and all associated answers. The
+          invitation will be reset to pending. This action cannot be undone.
+        </ModalBody>
+        <ModalFooter>
+          <ActionGroup>
+            <Button variant="danger" onClick={handleDeleteSubmission}>
+              Delete
+            </Button>
+            <Button variant="link" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+          </ActionGroup>
+        </ModalFooter>
+      </Modal>
     </PageSection>
   );
 };

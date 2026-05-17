@@ -10,7 +10,11 @@ import {
   submissions,
   tests,
 } from '@/db/schema';
+import { auth } from '@/lib/auth';
+import { hasMinRole } from '@/lib/roles';
 import { gradeMultipleChoice } from '@/utils/scoring';
+
+import type { UserRole } from '@/lib/roles';
 
 export async function GET(
   _request: Request,
@@ -143,4 +147,43 @@ export async function PUT(
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ submissionId: string }> },
+): Promise<NextResponse> {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!hasMinRole(session.user.role as UserRole, 'manager')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { submissionId } = await params;
+
+  const [submission] = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.id, submissionId))
+    .limit(1);
+
+  if (!submission) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  await db
+    .delete(integrityEvents)
+    .where(eq(integrityEvents.submissionId, submissionId));
+  await db.delete(answers).where(eq(answers.submissionId, submissionId));
+  await db.delete(submissions).where(eq(submissions.id, submissionId));
+
+  await db
+    .update(invitations)
+    .set({ status: 'pending' })
+    .where(eq(invitations.id, submission.invitationId));
+
+  return NextResponse.json({ ok: true });
 }

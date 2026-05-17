@@ -10,11 +10,16 @@ import {
   Form,
   FormGroup,
   Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   NumberInput,
   PageSection,
   TextInput,
   Title,
 } from '@patternfly/react-core';
+import { TrashIcon } from '@patternfly/react-icons';
 import {
   Table,
   Tbody,
@@ -47,6 +52,7 @@ const InvitePage: FC = () => {
   const [email, setEmail] = useState('');
   const [expiryDays, setExpiryDays] = useState(DEFAULT_EXPIRY_DAYS);
   const [lastCreatedLink, setLastCreatedLink] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Invitation | null>(null);
 
   const loadInvitations = useCallback((): void => {
     fetch(`/api/invitations?testId=${testId}`)
@@ -94,6 +100,13 @@ const InvitePage: FC = () => {
       submitted: 'green',
     };
     return colors[status] ?? 'grey';
+  };
+
+  const handleDeleteInvitation = async (): Promise<void> => {
+    if (!deleteTarget) return;
+    await fetch(`/api/invitations/${deleteTarget.id}`, { method: 'DELETE' });
+    setDeleteTarget(null);
+    loadInvitations();
   };
 
   return (
@@ -185,6 +198,7 @@ const InvitePage: FC = () => {
             <Th>Status</Th>
             <Th>Expires</Th>
             <Th>Link</Th>
+            <Th>Actions</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -206,10 +220,43 @@ const InvitePage: FC = () => {
                   {`${typeof window !== 'undefined' ? window.location.origin : ''}/test/${inv.token}`}
                 </ClipboardCopy>
               </Td>
+              <Td>
+                <Button
+                  variant="plain"
+                  aria-label="Delete invitation"
+                  onClick={() => setDeleteTarget(inv)}
+                >
+                  <TrashIcon />
+                </Button>
+              </Td>
             </Tr>
           ))}
         </Tbody>
       </Table>
+
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        aria-label="Delete invitation"
+        variant="small"
+      >
+        <ModalHeader title="Delete Invitation?" />
+        <ModalBody>
+          This will permanently delete the invitation for &quot;
+          {deleteTarget?.candidateName}&quot; and any associated submission
+          data. This action cannot be undone.
+        </ModalBody>
+        <ModalFooter>
+          <ActionGroup>
+            <Button variant="danger" onClick={handleDeleteInvitation}>
+              Delete
+            </Button>
+            <Button variant="link" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+          </ActionGroup>
+        </ModalFooter>
+      </Modal>
     </PageSection>
   );
 };
