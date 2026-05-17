@@ -1,4 +1,5 @@
-const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
+const PISTON_API_URL =
+  process.env.PISTON_API_URL ?? 'http://localhost:2000/api/v2';
 
 type PistonRunResult = {
   stdout: string;

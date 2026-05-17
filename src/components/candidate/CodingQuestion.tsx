@@ -12,6 +12,7 @@ import { PlayIcon } from '@patternfly/react-icons';
 import Editor from '@monaco-editor/react';
 import { type FC, useState } from 'react';
 
+import { canRunInBrowser, runInBrowser } from '@/lib/browser-executor';
 import MarkdownRenderer from '@/components/common/MarkdownRenderer';
 
 type CodingQuestionProps = {
@@ -59,23 +60,28 @@ const CodingQuestion: FC<CodingQuestionProps> = ({
   const handleRun = async (): Promise<void> => {
     setRunning(true);
     try {
-      const res = await fetch('/api/execute-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: selectedLanguage,
-          code: answerContent,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.error) {
-        onOutputChange(`Error: ${data.error}`);
+      if (canRunInBrowser(selectedLanguage)) {
+        const result = await runInBrowser(selectedLanguage, answerContent);
+        onOutputChange(result.output);
       } else {
-        const output = data.run?.output ?? '';
-        const compileErr = data.compile?.stderr ?? '';
-        onOutputChange(compileErr ? `Compile Error:\n${compileErr}` : output);
+        const res = await fetch('/api/execute-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: selectedLanguage,
+            code: answerContent,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+          onOutputChange(`Error: ${data.error}`);
+        } else {
+          const output = data.run?.output ?? '';
+          const compileErr = data.compile?.stderr ?? '';
+          onOutputChange(compileErr ? `Compile Error:\n${compileErr}` : output);
+        }
       }
     } catch {
       onOutputChange('Failed to execute code');
