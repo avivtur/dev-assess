@@ -1,7 +1,6 @@
 'use client';
 
-import { Alert } from '@patternfly/react-core';
-import { type FC, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type FC, type ReactNode, useEffect, useRef } from 'react';
 
 type IntegrityMonitorProps = {
   submissionId: string;
@@ -9,14 +8,11 @@ type IntegrityMonitorProps = {
   children: ReactNode;
 };
 
-const PASTE_WARNING_DURATION_MS = 3000;
-
 const IntegrityMonitor: FC<IntegrityMonitorProps> = ({
   submissionId,
   currentQuestionId,
   children,
 }) => {
-  const [showPasteWarning, setShowPasteWarning] = useState(false);
   const leaveTimeRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -37,9 +33,6 @@ const IntegrityMonitor: FC<IntegrityMonitorProps> = ({
           detail: text.slice(0, 500),
         }),
       }).catch(() => {});
-
-      setShowPasteWarning(true);
-      setTimeout(() => setShowPasteWarning(false), PASTE_WARNING_DURATION_MS);
     };
 
     const handleVisibility = (): void => {
@@ -75,16 +68,6 @@ const IntegrityMonitor: FC<IntegrityMonitorProps> = ({
 
   return (
     <div ref={containerRef}>
-      {showPasteWarning && (
-        <Alert
-          variant="warning"
-          title="Paste detected"
-          isInline
-          style={{ marginBottom: '1rem' }}
-        >
-          Clipboard paste events are recorded and visible to the reviewer.
-        </Alert>
-      )}
       {children}
     </div>
   );
